@@ -1,15 +1,21 @@
 library(jpeg)
 #library(MASS) #for pseudo-inverse implementation only
 
+#read in arguments
+args <- commandArgs(trailingOnly = TRUE)
+imgPath <- args[1]
+#create output image path
+outImgPath <- paste("results/",gsub("^(.*[/])","",imgPath),sep="")
+
 #global constants
 num_glyphs <- 95
 glyph_size <- 19*38
 beta <- 2 #SED = 2, KLD = 1
-epsilon <- 0 #threshold
-num_iterations <- 5 #number of H update iterations
+epsilon <- 0 #threshold, for maxcol(H)
+num_iterations <- as.numeric(args[2])) #number of H update iterations
 
-#read in image
-img <- readJPEG("black.jpg")
+#read in image & convert to grayscale, if needed
+img <- readJPEG(imgPath)
 if (length(dim(img)) == 3){
   #convert image to grayscale using luminosity method -- 0.21 R + 0.72 G + 0.07 B
   bw_img <- matrix(, nrow = nrow(img), ncol = ncol(img))
@@ -22,35 +28,19 @@ if (length(dim(img)) == 3){
   bw_img <- img
 }
 
-#write out grayscale image -- for testing
-writeJPEG(bw_img,target="bw_img.jpg",quality=1)
-
-#read in glyphs to construct the matrix W
-W <- matrix(, ncol = num_glyphs, nrow = glyph_size)
-
-glyphDir <- "./Courier-Glyphs/"
-for (i in 32:126){ #32:126 --> numbering of glyph file name
-  filename <- paste(glyphDir,i,".jpg",sep="")
-  glyph <- readJPEG(filename)
-  glyph <- as.vector(glyph) #column-wise unroll (!)
-  l2norm <- sqrt(sum(glyph^2))
-  glyph <- glyph/l2norm
-  W[,i-31] <- glyph
-}
-
 #partition the input image
 #define P and Q, and the glyph dimensions
 P <- nrow(bw_img)
 Q <- ncol(bw_img)
-g_row <- 38 #height of glyph = nrow(glyph_matrix) = M
-g_col <- 19 #width of glyph = ncol(glyph_matrix) = N
+g_row <- 38 #height of glyph = nrow(glyph_matrix) = N
+g_col <- 19 #width of glyph = ncol(glyph_matrix) = M
 
-#start by zero-padding the rows
-zero_col <- rep(0,times=Q)
+#start by one-padding the rows
+one_col <- rep(1,times=Q)
 if (P%%g_row != 0){
   rem <- g_row - P%%g_row
   for (i in (P+1):(P+rem)){
-    bw_img <- rbind(bw_img,zero_col)
+    bw_img <- rbind(bw_img,one_col)
   }
 } else {
   rem <- 0
@@ -60,13 +50,13 @@ if (P%%g_row != 0){
 P <- P + rem
 
 #generate new column vector based on new P
-zero_row <- rep(0,times=P)
+one_row <- rep(1,times=P)
 
 #zero-pad the columns
 if (Q%%g_col != 0){
   rem <- g_col - Q%%g_col
   for (i in (Q+1):(Q+rem)){
-    bw_img <- cbind(bw_img,zero_row)
+    bw_img <- cbind(bw_img,one_row)
   }
 } else {
   rem <- 0
@@ -75,16 +65,9 @@ if (Q%%g_col != 0){
 #update to the new Q
 Q <- Q + rem
 
-######## temp -- for testing #######
-#bw_img <- t(matrix(seq(1,6*8),ncol=8))
-#P <- 8
-#Q <- 6
-#g_row <- 4
-#g_col <- 2
-###################################
-
-#now take g_row and g_col blocks one at a time
-#convert them into vectors, and create V, where each column in V is the block vector
+# now take g_row and g_col blocks one at a time
+# convert them into vectors, and create V,
+# where each column in V is the block vector
 num_blocks_per_row <- P / g_row
 num_blocks_per_col <- Q / g_col
 
@@ -101,9 +84,47 @@ for (i in 1:num_blocks_per_row){
     V[,(i-1)*num_blocks_per_col+j] <- v#/sqrt(sum(v^2))
   }
 }
-#print(table(is.na(as.vector(V))))
-################################## FITTING #################################
-#the moneymaker -- update H over num_iterations using the update rule for fitting
+
+#read in glyphs to construct the matrix W
+W <- matrix(, ncol = num_glyphs, nrow = glyph_size)
+
+glyphDir <- "./Courier-Glyphs/"
+for (i in 32:126){ #32:126 --> numbering of glyph file name
+  filename <- paste(glyphDir,i,".jpg",sep="")
+  glyph <- readJPEG(filename)
+  glyph <- as.vector(glyph) #column-wise unroll (!)
+  l2norm <- sqrt(sum(glyph^2))
+  glyph <- glyph/l2norm
+  W[,i-31] <- glyph
+}
+
+
+########################## FITTING ###########################
+#construct random matrix H, initialize with random positive values
+H <- matrix(runif(num_glyphs * num_blocks_per_row*num_blocks_per_col)+1, nrow = num_glyphs, ncol = num_blocks_per_row*num_blocks_per_col)
+
+############################################################
+# This is the method optimized for speed,
+# uses linear algebra routines
+############################################################
+for (t in 1:num_iterations){
+  print(paste("Running iteration number ",t,sep=""))  
+  WH <- W %*% H    
+  WH_num <- V/(WH^(2-beta))
+  WH_den <- WH^(beta-1)
+  H_next <- H * (t(W) %*% WH_num)/(t(W) %*% WH_den)
+  H <- H_next
+  # check and remove NaNs
+  H_vec <- as.vector(H)
+  H_vec[!is.finite(H_vec)] <- 0
+  H <- matrix(H_vec,nrow = num_glyphs, ncol = num_blocks_per_row*num_blocks_per_col)
+}
+
+#################################################################
+# This is the slow method for fitting -- nested for-loops with 
+# lots of irregular memory access patterns,
+# resulting in very slow performance.
+#################################################################
 # for (t in 1:num_iterations){
 #   print(paste("Running iteration number ",t,sep=""))
 #   WH <- W %*% H
@@ -123,39 +144,16 @@ for (i in 1:num_blocks_per_row){
 #   }
 # }
 
-#construct random matrix H, initialize with random positive values
-H <- matrix(runif(num_glyphs * num_blocks_per_row*num_blocks_per_col)+1, nrow = num_glyphs, ncol = num_blocks_per_row*num_blocks_per_col)
-#print(table(is.na(as.vector(W %*% H))))
-#optimized for speed
-for (t in 1:num_iterations){
-  print(paste("Running iteration number ",t,sep=""))
-  #print(table(is.na(as.vector(H))))
-  WH <- W %*% H    
-  WH_num <- V/(WH^(2-beta))
-  WH_den <- WH^(beta-1)
-  H_next <- H * (t(W) %*% WH_num)/(t(W) %*% WH_den)
-  H <- H_next
-  H_vec <- as.vector(H)
-  H_vec[!is.finite(H_vec)] <- 0
-  H <- matrix(H_vec,nrow = num_glyphs, ncol = num_blocks_per_row*num_blocks_per_col)
-}
-#print(table(is.na(as.vector(H))))
-
-#current problem is that one entire column of H can be zero.. 
-#which means WH will get columns of zero
-#which means either numerator or denominator in update function will
-#have zeroes
-#resulting in divide by zero, i.e. NaN
-#how to counter this??!
-
-#H = |(WT W)−1 WT V|
-#pseudo-inverse
+##########################################################
+# This is the pseudo-inverse method.. very slow and gets
+# increasingly slower as size of image increases
+##########################################################
 #H <- ginv(t(W)%*%W)
 #A <- t(W)%*%V
 #H <- H%*%A
 #H <- H/sum(H)
 
-#maxcol(H,e)
+#maxcol(H,e) to find which glyph to fit
 max_col_indices <- max.col(t(H))
 max_col_vals <- vector()
 for (i in 1:length(max_col_indices)){
@@ -184,4 +182,4 @@ for (i in 1:num_blocks_per_row){
 }
 
 #output the image
-writeJPEG(ascii_img,target="ascii_output.jpg",quality=1)
+writeJPEG(ascii_img,target=outputImgPath,quality=1)
