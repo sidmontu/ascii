@@ -12,7 +12,7 @@ num_glyphs <- 95
 glyph_size <- 19*38
 beta <- 2 #SED = 2, KLD = 1
 epsilon <- 0 #threshold, for maxcol(H)
-num_iterations <- as.numeric(args[2])) #number of H update iterations
+num_iterations <- as.numeric(args[2]) #number of H update iterations
 
 #read in image & convert to grayscale, if needed
 img <- readJPEG(imgPath)
@@ -182,4 +182,4 @@ for (i in 1:num_blocks_per_row){
 }
 
 #output the image
-writeJPEG(ascii_img,target=outputImgPath,quality=1)
+writeJPEG(ascii_img,target=outImgPath,quality=1)

@@ -23,7 +23,7 @@ FIRST     = "\u0020"  # == "あ"
 LAST      = "\u007e"  # == "ヺ"
 
 #//-------------------------------------------
-COUNT	= 33
+COUNT	= 32
 (FIRST..LAST).step do |a|
   cmd = "convert -background white -fill black -font #{FONT} -gravity Center  -size #{FONT_SIZE} label:\"#{a}\" #{COUNT}.png"
   puts cmd
