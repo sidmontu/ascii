@@ -9,7 +9,7 @@ outImgPath <- paste("results/",gsub("^(.*[/])","",imgPath),sep="")
 
 #global constants
 num_glyphs <- 95
-glyph_size <- 19*38
+glyph_size <- 12*24
 beta <- 2 #SED = 2, KLD = 1
 epsilon <- 0 #threshold, for maxcol(H)
 num_iterations <- as.numeric(args[2]) #number of H update iterations
@@ -32,8 +32,8 @@ if (length(dim(img)) == 3){
 #define P and Q, and the glyph dimensions
 P <- nrow(bw_img)
 Q <- ncol(bw_img)
-g_row <- 38 #height of glyph = nrow(glyph_matrix) = N
-g_col <- 19 #width of glyph = ncol(glyph_matrix) = M
+g_row <- 24 #height of glyph = nrow(glyph_matrix) = N
+g_col <- 12 #width of glyph = ncol(glyph_matrix) = M
 
 #start by one-padding the rows
 one_col <- rep(1,times=Q)
