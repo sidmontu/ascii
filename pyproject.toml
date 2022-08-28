@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "ascii"
+version = "1.0.0"
+description = "Python-based ASCII Art Generator."
+authors = ["Sid <sidmontu@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typer = "^0.3.2"
+Pillow = "^9.2.0"
+
+[tool.poetry.dev-dependencies]
+black = "^21.7b0"
+pytest = "^6.2.4"
+mypy = "^0.910"
+coverage = {extras = ["toml"], version = "^5.5"}
+isort = "^5.9.3"
+flake8 = "^3.9.2"
+flake8-bugbear = "^21.4.3"
+pre-commit = "^2.14.0"
+
+[tool.poetry.scripts]
+asciify = "bin.asciify:_main"
+fontconvert = "bin.fontconvert:_main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+'''
+
+[tool.coverage.run]
+omit = [".*", "*/site-packages/*"]
+
+[tool.coverage.report]
+fail_under = 100
+
+[tool.isort]
+profile = "black"
