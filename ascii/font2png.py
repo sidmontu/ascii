@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+"""
+Helper functions to make font character images from font glyph files.
+"""
 
 from PIL import Image, ImageDraw, ImageFont
 
 
-def font2png(
+def make_glyph(
     glyph_num: int,
     width: int,
     height: int,
@@ -47,7 +50,7 @@ def font2png(
     pos = ((width - w - offset_w) / 2, (height - h - offset_h) / 2)
 
     # draw the image
-    draw.text(pos, glyph, "black", font=font)
+    draw.text(pos, glyph, glyph_color, font=font)
 
     # write to output
     img.save(f"{output_dir}/{glyph_num}.png")
